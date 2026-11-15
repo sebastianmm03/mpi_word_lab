@@ -1,0 +1,36 @@
+MPI version 1 (static contiguous blocks), p = 11
+Files processed: 3000
+Tokens read: 44951458
+Total occurrences found: 3631778
+
+Per-process report:
+  rank 0: files=273 tokens=4546922 local_time=4.147630 s
+  rank 1: files=273 tokens=3896583 local_time=3.660739 s
+  rank 2: files=273 tokens=3643506 local_time=3.497932 s
+  rank 3: files=273 tokens=4321135 local_time=3.913804 s
+  rank 4: files=273 tokens=4200552 local_time=3.807445 s
+  rank 5: files=273 tokens=4056211 local_time=3.798742 s
+  rank 6: files=273 tokens=4210962 local_time=3.817666 s
+  rank 7: files=273 tokens=3989835 local_time=3.767194 s
+  rank 8: files=272 tokens=4225014 local_time=3.863928 s
+  rank 9: files=272 tokens=3271209 local_time=3.265024 s
+  rank 10: files=272 tokens=4589529 local_time=4.077180 s
+
+LOCAL_TIMES=4.147630,3.660739,3.497932,3.913804,3.807445,3.798742,3.817666,3.767194,3.863928,3.265024,4.077180
+LOAD_IMBALANCE_LI=1.0963
+RELATIVE_SPREAD=0.2333
+MATCHES_BASELINE=True
+
+Top 10 query words in the corpus:
+  a: 785774
+  para: 392156
+  sus: 228913
+  otros: 105530
+  ante: 99832
+  unos: 88794
+  otra: 83901
+  vosotros: 61617
+  mios: 58420
+  tuya: 56635
+
+EXECUTION_TIME=4.216398
