@@ -2,9 +2,9 @@
 #
 # 1. rank 0 reads consulta.txt
 # 2. rank 0 broadcasts the query words (comm.bcast)
-# 3. rank 0 lists the file_*.txt files
-# 4. the list is split into p contiguous blocks with the same number of
-#    files (+-1) and sent with comm.scatter (static distribution)
+# 3. rank 0 lists the file_*.txt files and broadcasts the list
+# 4. static distribution: the list is split into p contiguous blocks with
+#    the same number of files (+-1); process r takes block r
 # 5. each process counts the query words in its own files
 # 6. partial results are gathered in rank 0 (comm.gather)
 # 7. rank 0 merges them and prints the per-process report and the top 10
@@ -95,11 +95,13 @@ def main():
         query = load_query(os.path.join(dataset_dir, CONSULTA_NAME))
     query = comm.bcast(query, root=0)
 
-    # steps 3-4: rank 0 lists and splits the files, scatter sends one block each
-    blocks = None
+    # steps 3-4: rank 0 lists the files and broadcasts the list,
+    # then each process takes its own contiguous block using its rank
+    files = None
     if rank == 0:
-        blocks = split_blocks(list_files(dataset_dir), size)
-    my_files = comm.scatter(blocks, root=0)
+        files = list_files(dataset_dir)
+    files = comm.bcast(files, root=0)
+    my_files = split_blocks(files, size)[rank]
 
     # step 5: local counting, timed on its own
     t0 = MPI.Wtime()
