@@ -51,9 +51,9 @@ docker run --rm -e NP_LIST=11 -e RUNS=3 -v "${PWD}:/app" augustosalazar/slim-mpi
 ### a. Experimental Plan
 
 1. Generate the dataset once (fixed seed, so it is the same dataset as the instructor's).
-2. Run the sequential baseline 4 times and record its time and its output. T_seq is the mean.
+2. Run the sequential baseline 6 times (4 before and 2 after the MPI runs) and record its time and its output. T_seq is the mean.
 3. Run `detectar_procesos_mpi.py` and use the recommended N as p for every MPI run.
-4. Run `mpi1.py` with p processes at least 3 times. For each run record the total time and, for each process, the number of files and the local counting time t_i.
+4. Run `mpi1.py` with p processes 5 times (the statement asks for at least 3). For each run record the total time and, for each process, the number of files and the local counting time t_i.
 5. Compute T_p (mean total time), S_p = T_seq / T_p, E_p = S_p / p, LI = max(t_i) / mean(t_i) and the relative spread (max(t_i) - min(t_i)) / mean(t_i).
 6. Write `mpi2.py` to reduce the imbalance seen in step 4, repeat steps 4-5 with it and compare both versions.
 7. Check in every run that the result is identical to the baseline.
@@ -79,17 +79,20 @@ The total time starts after a `comm.Barrier()` (all processes start together) an
 ### d. Test procedure
 
 - **Correctness:** every MPI run must print `MATCHES_BASELINE=True` and the same top 10 as the baseline.
-- **Performance:** the runs of each version are done one after another in the same session, with no other heavy programs open. The first baseline run is kept because it was not slower than the others.
+- **Performance:** all runs are made in the same session, with no other heavy programs open. The MPI runs are interleaved (v1 run 1, v2 run 1, v1 run 2, v2 run 2, ...) so that any change in the state of the machine affects both versions in the same way. T_p is the mean of the 5 total times; the median is also reported because one slow run can move the mean a lot.
+- The logs of every run are saved in `results/` (not uploaded, the folder is in `.gitignore`).
 
 ## 4. Experimental Plan Execution
 
 ### a. Sequential baseline timing
 
-| Run | 1 | 2 | 3 | 4 |
-|---|---|---|---|---|
-| Time (s) | 21.548 | 22.040 | 21.962 | 22.127 |
+Runs 1-4 were made before the MPI runs and runs 5-6 right after them, to check that the machine did not change during the session.
 
-**T_seq = 21.919 s** (mean of the 4 runs, the difference between runs is below 3%). Output: 3000 files, 44,951,458 tokens, 3,631,778 occurrences.
+| Run | 1 | 2 | 3 | 4 | 5 | 6 |
+|---|---|---|---|---|---|---|
+| Time (s) | 21.548 | 22.040 | 21.962 | 22.127 | 24.277 | 22.205 |
+
+**T_seq = 22.360 s** (mean of the 6 runs, standard deviation 0.97 s; the median is 22.08 s). Run 5 is the slowest; without it the mean would be 21.97 s. Output: 3000 files, 44,951,458 tokens, 3,631,778 occurrences.
 
 | Word | a | para | sus | otros | ante | unos | otra | vosotros | mios | tuya |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -107,11 +110,43 @@ The recommended value is N = 11, so **p = 11** in all MPI runs. N = 8, 10 and 11
 
 ### b. MPI version 1 timing results
 
-*(pending)*
+p = 11. "Max t_i" is the local time of the slowest process; "Overhead" is the total time minus the max t_i (broadcasts, list of files, gather and merge).
+
+| Run | Total time (s) | Max t_i (s) | Mean t_i (s) | Overhead (s) |
+|---|---|---|---|---|
+| 1 | 4.170 | 4.114 | 3.736 | 0.056 |
+| 2 | 4.216 | 4.148 | 3.783 | 0.068 |
+| 3 | 4.282 | 4.236 | 3.872 | 0.046 |
+| 4 | 6.724 | 6.659 | 6.227 | 0.065 |
+| 5 | 4.205 | 4.173 | 3.826 | 0.032 |
+
+- **T_p = 4.720 s** (mean of 5, std 1.12 s), **S_p = 22.360 / 4.720 = 4.74**, **E_p = 4.74 / 11 = 0.43**.
+- Median of the total times: 4.216 s, which gives S_p = 5.30 and E_p = 0.48.
+- Run 4 is an outlier: all 11 processes were about 60% slower at the same time (the sum of their local times was 68.5 s instead of about 42 s), so something outside the program slowed down the whole machine during that run. It is kept in the mean, but without it T_p would be 4.218 s (std 0.05 s).
+- All 5 runs printed `MATCHES_BASELINE=True` and the same top 10 as the baseline.
 
 ### c. Load imbalance evidence (version 1)
 
-*(pending)*
+Local time t_i of every process (seconds) and LI = max(t_i) / mean(t_i):
+
+| Run | r0 | r1 | r2 | r3 | r4 | r5 | r6 | r7 | r8 | r9 | r10 | LI | Spread |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | 4.11 | 3.61 | 3.45 | 3.88 | 3.77 | 3.68 | 3.78 | 3.71 | 3.81 | 3.21 | 4.08 | 1.101 | 0.241 |
+| 2 | 4.15 | 3.66 | 3.50 | 3.91 | 3.81 | 3.80 | 3.82 | 3.77 | 3.86 | 3.27 | 4.08 | 1.096 | 0.233 |
+| 3 | 4.24 | 3.77 | 3.58 | 4.02 | 3.89 | 3.81 | 3.93 | 3.82 | 3.94 | 3.37 | 4.22 | 1.094 | 0.224 |
+| 4 | 6.66 | 6.07 | 5.86 | 6.41 | 6.27 | 6.25 | 6.32 | 6.15 | 6.31 | 5.53 | 6.66 | 1.069 | 0.181 |
+| 5 | 4.15 | 3.68 | 3.53 | 3.95 | 3.89 | 3.80 | 3.90 | 3.78 | 3.93 | 3.30 | 4.17 | 1.091 | 0.227 |
+
+**Mean LI = 1.090**, mean relative spread = 0.221. The slowest process takes about 9% more than the average, and 22% more than the fastest one.
+
+The reason is the amount of text, not the number of files. Every process received 272 or 273 files, but the words in its block were very different:
+
+| Rank | r0 | r1 | r2 | r3 | r4 | r5 | r6 | r7 | r8 | r9 | r10 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| Files | 273 | 273 | 273 | 273 | 273 | 273 | 273 | 273 | 272 | 272 | 272 |
+| Tokens (millions) | 4.55 | 3.90 | 3.64 | 4.32 | 4.20 | 4.06 | 4.21 | 3.99 | 4.23 | 3.27 | 4.59 |
+
+The order of the local times is the same as the order of the tokens in every run: rank 9 (3.27 M tokens) is always the fastest and ranks 0 and 10 (about 4.6 M) are always the slowest. The imbalance is repeatable and is caused by how many large files fell in each block. The total time follows the slowest process (max t_i), so with this distribution about 0.37 s of every run (mean of max t_i - mean t_i) is spent by the other processes waiting for the slowest ones.
 
 ### d. MPI version 2: how it corrects the imbalance, and its results
 
