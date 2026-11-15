@@ -150,7 +150,46 @@ The order of the local times is the same as the order of the tokens in every run
 
 ### d. MPI version 2: how it corrects the imbalance, and its results
 
-*(pending)*
+**Idea.** In version 1 every process gets the same number of files, but not the same amount of text. Version 2 keeps the same program (broadcast of the query, local counting with the same loop, gather in rank 0) and only changes how the files are given out:
+
+1. Rank 0 lists the files and broadcasts the names (`comm.bcast`).
+2. The size in bytes of a file is used as an estimate of its work (the counting time is proportional to the number of words). Reading the size of a file takes about 1 ms on the Docker volume of this machine (3000 files = about 3 s), so instead of doing it only in rank 0, each process reads the sizes of `files[rank::p]` and sends them to rank 0 with `comm.gather`.
+3. Rank 0 sorts all files from the largest to the smallest and broadcasts the sorted list.
+4. The sorted list is dealt like cards: process r takes positions r, r + p, r + 2p, ... (`sorted_files[rank::p]`). In the first rounds every process receives one of the large files, then one of the medium ones and at the end the small ones, so all of them end with about the same amount of text.
+
+The assignment is still static (decided before counting starts). The time of steps 1-3 is printed as `SORT_TIME`; it is the extra cost of version 2 and it is included in the total time.
+
+**Result of the assignment.** Every process got 272 or 273 files, as in version 1, but now between 4.04 M and 4.13 M tokens (a difference of 2%, against 40% in version 1: 3.27 M to 4.59 M).
+
+| Run | Total time (s) | Sort time (s) | Max t_i (s) | Mean t_i (s) | LI | Spread |
+|---|---|---|---|---|---|---|
+| 1 | 4.303 | 0.503 | 3.789 | 3.740 | 1.013 | 0.027 |
+| 2 | 4.351 | 0.561 | 3.777 | 3.715 | 1.017 | 0.034 |
+| 3 | 4.995 | 0.736 | 4.246 | 4.206 | 1.010 | 0.020 |
+| 4 | 4.710 | 0.842 | 3.837 | 3.783 | 1.014 | 0.025 |
+| 5 | 4.302 | 0.509 | 3.782 | 3.756 | 1.007 | 0.016 |
+
+- **T_p = 4.532 s** (mean of 5, std 0.31 s), **S_p = 22.360 / 4.532 = 4.93**, **E_p = 4.93 / 11 = 0.45**.
+- Median of the total times: 4.351 s, which gives S_p = 5.14 and E_p = 0.47.
+- **Mean LI = 1.012** and mean relative spread = 0.024. In every run the 11 local times are within 0.15 s of each other.
+- Mean sort time = 0.630 s (0.50 s in the best runs, up to 0.84 s).
+- All 5 runs printed `MATCHES_BASELINE=True` and the same top 10 as the baseline.
+
+**Comparison (p = 11, T_seq = 22.360 s, ideal S_p = 11, ideal time = 2.03 s)**
+
+| Metric | MPI v1 | MPI v2 |
+|---|---|---|
+| T_p, mean of 5 (s) | 4.720 | 4.532 |
+| T_p, median (s) | 4.216 | 4.351 |
+| Speedup S_p (mean / median) | 4.74 / 5.30 | 4.93 / 5.14 |
+| Efficiency E_p (mean / median) | 0.43 / 0.48 | 0.45 / 0.47 |
+| LI (mean) | 1.090 | 1.012 |
+| Relative spread (mean) | 0.221 | 0.024 |
+| Max t_i, mean (s) | 4.666 | 3.886 |
+| Max t_i, without v1 run 4 (s) | 4.168 | 3.886 |
+| Time outside counting (s) | 0.054 | 0.646 |
+
+Version 2 clearly fixes the imbalance (LI from 1.090 to 1.012). The mean total time is better for version 2, but only because of the slow run 4 of version 1; with the median, version 1 is 0.135 s (3%) faster. Section 5.b explains why.
 
 ## 5. Analysis
 
