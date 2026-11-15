@@ -1,6 +1,8 @@
 # 1. Parallel Word Counting in a Text Corpus with MPI
 
-Lab 2 - Estructura del Computador II. Static distribution by number of files (MPI v1) versus files sorted by size and dealt like cards (MPI v2).
+**Author:** Sebastián Mercado M. - Estructura del Computador II, Universidad del Norte.
+
+Lab 2: static distribution by number of files (MPI v1) versus files sorted by size and dealt like cards (MPI v2).
 
 ## 2. Problem Description
 
@@ -80,7 +82,8 @@ The total time starts after a `comm.Barrier()` (all processes start together) an
 
 - **Correctness:** every MPI run must print `MATCHES_BASELINE=True` and the same top 10 as the baseline.
 - **Performance:** all runs are made in the same session, with no other heavy programs open. The MPI runs are interleaved (v1 run 1, v2 run 1, v1 run 2, v2 run 2, ...) so that any change in the state of the machine affects both versions in the same way. T_p is the mean of the 5 total times; the median is also reported because one slow run can move the mean a lot.
-- The logs of every run are saved in `results/` (not uploaded, the folder is in `.gitignore`).
+- The raw output of every run used in this report is in the folder `evidence/` (`official_runs/`, `baseline_and_calibration/` and `run_all_check/`). The folder `results/` is not uploaded because it is in `.gitignore` and `run_all.sh` deletes it every time it runs.
+- **Final check:** at the end, `run_all.sh` (provided, unchanged) was run once with `NP_LIST=11` and `RUNS=3` to check that the whole pipeline works from scratch (section 4.d).
 
 ## 4. Experimental Plan Execution
 
@@ -190,6 +193,15 @@ The assignment is still static (decided before counting starts). The time of ste
 | Time outside counting (s) | 0.054 | 0.646 |
 
 Version 2 clearly fixes the imbalance (LI from 1.090 to 1.012). The mean total time is better for version 2, but only because of the slow run 4 of version 1; with the median, version 1 is 0.135 s (3%) faster. Section 5.b explains why.
+
+**Final check with `run_all.sh`.** The provided script regenerated the dataset, ran the baseline (22.827 s) and then 3 runs of each version with p = 11 (all v1 runs first, then all v2 runs, as the script does). The `EXECUTION_TIME` values it collected in `results/times_summary.csv` were:
+
+| Version | Run 1 | Run 2 | Run 3 | Mean | LI (3 runs) |
+|---|---|---|---|---|---|
+| MPI v1 | 4.988 | 4.778 | 4.433 | 4.733 | 1.078 - 1.092 |
+| MPI v2 | 4.442 | 4.317 | 4.724 | 4.494 | 1.010 - 1.019 |
+
+All 6 runs printed `MATCHES_BASELINE=True`, so the pipeline works from scratch. In this batch version 2 was faster (by 0.24 s on average), the opposite of the median result above. The difference between the two versions is about the same size as the variation between runs of the same version, which is discussed in section 5.c.
 
 ## 5. Analysis
 
